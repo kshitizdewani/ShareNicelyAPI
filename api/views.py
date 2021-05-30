@@ -16,10 +16,27 @@ def all_connections(user:User):
     # combining the queries
     connections = c1 | c2
     connections = connections.order_by('-datetime')
+    return connections
+
+def all_connection_users(user : User):
+    # requests sent by user, and accepted by the connection
+    c1 = Connection.objects.filter(user=user,status='accepted')
+    # requests sent by connection, and accepted by user
+    c2 = Connection.objects.filter(connection=user,status='accepted')
+    # combining the queries
+    connections = c1 | c2
+    users = list()
+    for connection in list(connections):
+        if connection.user == user :
+            users.append(connection.connection)
+        elif connection.connection == user :
+            users.append(connection.user)
+    return users
 
 class PostsView(APIView):
     permission_classes = (IsAuthenticated,)
     def get(self,request):
+        
         posts = Post.objects.filter(user=request.user)
         serializer = PostSerializer(posts,many=True)
         return Response(serializer.data)
@@ -52,7 +69,6 @@ class ConnectionsView(APIView):
         user = request.user
         print(all_connections(user))
         return Response(status=status.HTTP_200_OK)
-        
 
 class UserView(APIView):
     permission_classes = (IsAuthenticated,)
@@ -82,9 +98,46 @@ class UserView(APIView):
                             first_name=request.data.get('first_name'),
                             last_name = request.data.get('last_name'),
                             password = request.data.get('password'),
-                            password2 = request.data.get('password2')
+                            password2 = request.data.get('password2'),
                             )
             new_user.save()
             x = Profile(user = new_user, gender= request.data.get('gender'))
             x.save()
             return Response(status=status.HTTP_201_CREATED)
+        
+        
+class FeedView(APIView):
+    permission_classes = (IsAuthenticated,)
+    def get(self,request):
+        objects = all_connection_users(request.user)
+        posts = Post.objects.filter(user=request.user)
+        print(all_connection_users(request.user))
+        objlist = list()
+        for user in objects:
+            x = Post.objects.filter(user=user)
+            posts |= x
+        posts = posts.order_by('-datetime')
+        # print(posts)
+        for post in posts:
+            obj = dict()
+            if post.user.first_name:
+                obj['first_name'] = post.user.first_name
+            else:
+                obj['first_name'] = ''
+            if post.user.last_name:
+                obj['last_name'] = post.user.last_name
+            else:
+                obj['last_name'] = ''
+            # obj['last_name'] = post.user.last_name
+            profile = Profile.objects.get(user=post.user)
+            obj['profile_picture'] = profile.get_profile_pic_url()
+            obj['username'] = post.user.username
+            obj['content'] = post.content
+            obj['visibility'] = post.visibility
+            obj['datetime'] = post.datetime
+            if post.image:
+                obj['image'] = post.image.url
+            objlist.append(obj)
+        return Response(objlist)
+
+

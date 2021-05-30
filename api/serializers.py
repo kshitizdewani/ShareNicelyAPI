@@ -45,3 +45,13 @@ class PostSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
         fields = '__all__'
+
+class PostUserSerializer(serializers.Serializer):
+    user__first_name = serializers.CharField(max_length=60)
+    user__last_name = serializers.CharField(max_length=60)
+    user__username = serializers.CharField(max_length=60)
+    content = serializers.CharField(max_length=1000)
+    visibility = serializers.CharField(max_length=15)
+    datetime = serializers.DateTimeField()
+    image = serializers.ImageField()
+
