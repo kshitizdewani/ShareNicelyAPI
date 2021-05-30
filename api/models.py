@@ -7,12 +7,12 @@ class Profile(models.Model):
     user = models.ForeignKey(User,on_delete=models.CASCADE)
     picture = models.ImageField(upload_to='profile_pics',blank=True,null=True)
     gender = models.CharField(max_length=10,choices=(('male','male'),('female','female')))
-    default_pic_mapping = { 'male': '01.png', 'female': '02.png'}
+    default_pic_mapping = { 'male': 'male.jpg', 'female': 'female.jpg'}
 
     def get_profile_pic_url(self):
         if not self.picture:
             if self.gender:
-                return static('{}'.format(self.default_pic_mapping[self.gender]))
+                return static('default/{}'.format(self.default_pic_mapping[self.gender]))
         return self.picture.url
     
 
