@@ -209,6 +209,7 @@ class UserView(APIView):
             obj['profile_picture'] = profile.get_profile_pic_url()
             return Response(data=obj,status=status.HTTP_200_OK)
     
+class SignUp(APIView):
     def post(self,request):
         username = request.data.get('username')
         try:
@@ -220,7 +221,6 @@ class UserView(APIView):
                             first_name=request.data.get('first_name'),
                             last_name = request.data.get('last_name'),
                             password = request.data.get('password'),
-
                             )
             new_user.save()
             x = Profile(user = new_user, gender= request.data.get('gender'))
