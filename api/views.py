@@ -58,10 +58,127 @@ class PostsView(APIView):
 
 class ProfileView(APIView):
     permission_classes = (IsAuthenticated,)
-    def get(self,request):
+    def get(self,request,username):
         user=request.user
-        profile = Profile.objects.get(user=request.user)
-        return Response({'username':user.username,'email':user.email,'first_name':user.first_name,'last_name':user.last_name,'gender':profile.gender,'picture':profile.get_profile_pic_url()})
+        # profile of an another person is requested
+        x = dict()
+        if not username == user.username:
+            try:
+                requested_user = User.objects.get(username=username)
+                requested_profile = Profile.objects.get(user=requested_user)
+                x['mine'] = False
+                x['username'] = requested_user.username
+                x['first_name'] = requested_user.first_name
+                x['last_name'] = requested_user.last_name
+                x['email'] = requested_user.email
+                x['gender'] = requested_profile.gender
+                x['profile_picture'] = requested_profile.get_profile_pic_url()
+            except User.DoesNotExist:
+                return Response(status=status.HTTP_400_BAD_REQUEST)
+            except Profile.DoesNotExist:
+                return Response(status=status.HTTP_400_BAD_REQUEST)
+            
+            #---- checking if connection exists
+            connection_exists = False
+            connection_status = ''
+            connection = Connection.objects.filter(user=request.user,connection=requested_user) | Connection.objects.filter(connection=request.user,user=requested_user)
+            if len(connection) > 0 :
+                connection_exists = True
+                connection_status = connection[0].status
+            x['connected'] = connection_exists
+            x['connection_status'] = connection_status
+            
+            #---- mutual friends
+            requested_user_connections = set(all_connection_users(requested_user))
+            user_connections = set(all_connection_users(user))
+            mutual_connections = user_connections.intersection(requested_user_connections)
+            y = list()
+            for i in mutual_connections:
+                z = dict()
+                pr = Profile.objects.get(user=i)
+                z['username'] = i.username
+                z['first_name'] = i.first_name
+                z['last_name'] = i.last_name
+                z['email'] = i.email
+                z['gender'] = pr.gender
+                z['profile_picture'] = pr.get_profile_pic_url()
+                y.append(z)
+            x['mutual_connections'] = y
+            
+            # ----- all connections
+            y = list()
+            for j in list(requested_user_connections):
+                z = dict()
+                pr = Profile.objects.get(user=j)
+                z['username'] = j.username
+                z['first_name'] = j.first_name
+                z['last_name'] = j.last_name
+                z['email'] = j.email
+                z['gender'] = pr.gender
+                z['profile_picture'] = pr.get_profile_pic_url()
+                y.append(z)
+            x['all_connections'] = y
+        
+            # ---- all posts
+            all_posts = Post.objects.filter(user=requested_user).order_by('-datetime')
+            posts_to_show = []
+            if x['connected']:
+                posts_to_show = all_posts
+            else:
+                posts_to_show = all_posts.filter(visibility='everyone').order_by('-datetime')
+            y = list()
+            for post in posts_to_show:
+                z = dict()
+                z['content'] = post.content
+                z['image'] = ''
+                if post.image:
+                    z['image'] = post.image.url
+                z['datetime'] = post.datetime
+                y.append(z)
+            x['posts'] = y
+                
+        else:
+            profile = Profile.objects.get(user=request.user)
+            x ={'mine' : True,
+                'username':user.username,
+                'email':user.email,
+                'first_name':user.first_name,
+                'last_name':user.last_name,
+                'gender':profile.gender,
+                'picture':profile.get_profile_pic_url()
+                }
+            # ----- all connections
+            connections = all_connection_users(user)
+            y = list()
+            for j in list(connections):
+                z = dict()
+                pr = Profile.objects.get(user=j)
+                z['username'] = j.username
+                z['first_name'] = j.first_name
+                z['last_name'] = j.last_name
+                z['email'] = j.email
+                z['gender'] = pr.gender
+                z['profile_picture'] = pr.get_profile_pic_url()
+                y.append(z)
+            x['all_connections'] = y
+        
+            # ---- all posts
+            all_posts = Post.objects.filter(user=user).order_by('-datetime')
+            posts_to_show = all_posts
+            y = list()
+            for post in posts_to_show:
+                z = dict()
+                z['content'] = post.content
+                z['image'] = ''
+                if post.image:
+                    z['image'] = post.image.url
+                z['datetime'] = post.datetime
+                z['visibility'] = post.visibility
+                y.append(z)
+            x['posts'] = y
+        
+        return Response(x)   
+            
 
 class ConnectionsView(APIView):
     permission_classes = (IsAuthenticated,)
@@ -223,6 +340,11 @@ class ConnectionRequests(APIView):
             if connection_obj.status == 'requested' and request.data.get('action')=='accept':
                 connection_obj.status = 'accepted'
                 connection_obj.save()
-            return Response(status=status.HTTP_200_OK)
+                return Response(status=status.HTTP_200_OK)
+            elif connection_obj.status == 'requested' and request.data.get('action') == 'reject':
+                connection_obj.delete()
+                return Response(status=status.HTTP_200_OK)
+            else:
+                return Response(status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
