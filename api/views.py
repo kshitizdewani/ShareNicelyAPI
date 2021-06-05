@@ -1,3 +1,4 @@
+from django.db import connection
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -346,11 +347,17 @@ class ConnectionRequests(APIView):
                 elif connection_obj.status == 'requested' and request.data.get('action') == 'reject':
                     connection_obj.delete()
                     return Response(status=status.HTTP_200_OK)
-            elif action in ['cancel']:
+            elif action == 'cancel':
                 user = request.user
                 other = User.objects.get(username=request.data.get('connection'))
                 connection_obj = Connection.objects.get(user=user,connection=other)
                 connection_obj.delete()
+                return Response(status=status.HTTP_200_OK)
+            elif action=='request':
+                user = request.user
+                other = User.objects.get(username=request.data.get('connection'))
+                new_connection = Connection(user=user, connection=other,status='requested')
+                new_connection.save()
                 return Response(status=status.HTTP_200_OK)
             else:
                 return Response(status=status.HTTP_400_BAD_REQUEST)
