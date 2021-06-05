@@ -333,15 +333,23 @@ class ConnectionRequests(APIView):
     def post(self,request):
         user = request.user
         if request.data.get('connection'):
+            action = request.data.get('action')
             print(request.data.get('connection'))
-            request_sender=User.objects.get(username=request.data.get('connection'))
-            request_reciever = request.user
-            connection_obj = Connection.objects.get(user=request_sender,connection=request_reciever)
-            if connection_obj.status == 'requested' and request.data.get('action')=='accept':
-                connection_obj.status = 'accepted'
-                connection_obj.save()
-                return Response(status=status.HTTP_200_OK)
-            elif connection_obj.status == 'requested' and request.data.get('action') == 'reject':
+            if action in ['accept','reject']:
+                request_sender=User.objects.get(username=request.data.get('connection'))
+                request_reciever = request.user
+                connection_obj = Connection.objects.get(user=request_sender,connection=request_reciever)
+                if connection_obj.status == 'requested' and request.data.get('action')=='accept':
+                    connection_obj.status = 'accepted'
+                    connection_obj.save()
+                    return Response(status=status.HTTP_200_OK)
+                elif connection_obj.status == 'requested' and request.data.get('action') == 'reject':
+                    connection_obj.delete()
+                    return Response(status=status.HTTP_200_OK)
+            elif action in ['cancel']:
+                user = request.user
+                other = User.objects.get(username=request.data.get('connection'))
+                connection_obj = Connection.objects.get(user=user,connection=other)
                 connection_obj.delete()
                 return Response(status=status.HTTP_200_OK)
             else:
