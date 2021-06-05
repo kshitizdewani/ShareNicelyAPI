@@ -215,7 +215,6 @@ class SignUp(APIView):
         username = request.data.get('username')
         try:
             x = User.objects.get(username = username)
-            return Response(status=status.HTTP_400_BAD_REQUEST)
         except User.DoesNotExist:
             new_user = User(username=username,
                             email= request.data.get('email'),
@@ -227,7 +226,8 @@ class SignUp(APIView):
             x = Profile(user = new_user, gender= request.data.get('gender'))
             x.save()
             return Response(status=status.HTTP_201_CREATED)
-        
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
         
 class FeedView(APIView):
     permission_classes = (IsAuthenticated,)
@@ -349,6 +349,7 @@ class ConnectionRequests(APIView):
                     return Response(status=status.HTTP_200_OK)
             elif action == 'cancel':
                 user = request.user
+                print(request.data.get('connection'))
                 other = User.objects.get(username=request.data.get('connection'))
                 connection_obj = Connection.objects.get(user=user,connection=other)
                 connection_obj.delete()
