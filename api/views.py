@@ -1,4 +1,5 @@
 from django.db import connection
+from django.db.utils import IntegrityError
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -216,19 +217,34 @@ class SignUp(APIView):
         try:
             x = User.objects.get(username = username)
         except User.DoesNotExist:
-            new_user = User(username=username,
+            newuser = User.objects.create_user(username=username,
                             email= request.data.get('email'),
                             first_name=request.data.get('first_name'),
                             last_name = request.data.get('last_name'),
                             password = request.data.get('password'),
                             )
-            new_user.save()
-            x = Profile(user = new_user, gender= request.data.get('gender'))
+            newuser.save()
+            x = Profile(user = newuser, gender= request.data.get('gender'))
             x.save()
             return Response(status=status.HTTP_201_CREATED)
-        else:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+        except IntegrityError:
+            return Response(status=status.HTTP_200_OK)
         
+        else:
+            print('inside else')
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+class CheckUserAvailability(APIView):
+    def get(self,request):
+        username = request.data.get('username')
+        email = request.data.get('email')
+        x = User.objects.filter(username=username) | User.objects.filter(email = email)
+        available = True
+        if x.exists() :
+            available = False
+        print('available---',available)
+        return Response({'available':available})
+
 class FeedView(APIView):
     permission_classes = (IsAuthenticated,)
     def get(self,request):
