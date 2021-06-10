@@ -296,6 +296,7 @@ class SearchView(APIView):
         by_email = User.objects.filter(email__contains=term)
         searchresults = by_email | by_name | by_phone
         searched_connections = list()
+        requested_connections = list()
         searched_non_connections = list()
         user_connections=all_connection_users(request.user)
         for user in searchresults:
@@ -304,8 +305,9 @@ class SearchView(APIView):
                 continue
             x = dict()
             x['username'] = user.username
-            if user.last_name:
+            if user.first_name:
                 x['first_name'] = user.first_name
+                print(user.first_name)
             else:
                 x['first_name'] = ''
             if user.last_name:
@@ -319,13 +321,30 @@ class SearchView(APIView):
             profile = Profile.objects.get(user=user)
             x['gender'] = profile.gender
             x['profile_picture'] = profile.get_profile_pic_url()
-            x['isConnection'] = False
-            if user in user_connections:
-                x['isConnection'] = True
-                searched_connections.append(x)
+            connection_exists = False
+            connection_status = ''
+            connection = Connection.objects.filter(user=request.user,connection=user) | Connection.objects.filter(connection=request.user,user=user)
+            print(len(connection))
+            if len(connection) > 0 :
+                connection_exists = True
+                connection_status = connection[0].status
+                if connection_status == 'accepted':
+                    searched_connections.append(x)
+                elif connection_status == 'requested':
+                    requested_connections.append(x)
             else:
                 searched_non_connections.append(x)
-        return Response(searched_connections+searched_non_connections)
+            x['connected'] = connection_exists
+            x['connection_status'] = connection_status
+            # if user in user_connections:
+            #     x['isConnection'] = True
+            #     connection = Connection.objects.filter(user=user,connection=request.user) | Connection.objects.filter(connection=user,user=request.user)
+            #     for i in list(connection):    
+            #         x['connection_status'] = i.status 
+                
+            # else:
+        print(searched_connections+requested_connections+searched_non_connections)
+        return Response(searched_connections+requested_connections+searched_non_connections)
 
 
 class ConnectionRequests(APIView):
